@@ -156,7 +156,7 @@ embstr和raw，为什么要设计两个编码格式呢？就是为了长度不�
 
 实际原因是embstr的使用，只分配了一次内存，redisObject和SDS是一起分配的，二raw是分配了两次内存
 
-![image-20210310231752229](/Users/vince/Library/Application Support/typora-user-images/image-20210310231752229.png)
+![image-20210310231752229](./imgs/image-20210310231752229.png)
 
 那这三种类型之间是怎么转换的呢？
 
@@ -190,7 +190,7 @@ embstr和raw，为什么要设计两个编码格式呢？就是为了长度不�
 
 Hash类型是指Redis键值对中的值本身又是一个键值对结构，形如`value=[{field1，value1}，...{fieldN，valueN}]`，hash的value只能是字符串，不能嵌套其他类型。同样是存储字符串，Hash和String有什么区别呢？如下图所示:
 
-![image-20210310235701634](/Users/vince/Library/Application Support/typora-user-images/image-20210310235701634.png)
+![image-20210310235701634](imgs/image-20210310235701634.png)
 
 从上图可以明显看出：
 
@@ -215,15 +215,13 @@ Hash类型是指Redis键值对中的值本身又是一个键值对结构，形�
 
 #####ziplist
 
-ziplist是一个经过特殊编码的，由连续的内存块组成的双向链表。它不存储指向上一个节点和下一个节点的指针，而是存储上一个节点的长度和当前节点的长度。这让数据在内存中更为紧凑，同时可以轻易的得到前驱后驱数据项的位置。
+ziplist是一个经过特殊编码的，由连续的内存块组成的双向链表。它不存储指向上一个节点和下一个节点的指针，而是存储上一个节点的长度和当前节点的长度。这让数据在内存中更为紧凑，所以叫做zip，同时可以轻易的得到前驱后驱数据项的位置。
 
 ```
 <zlbytes><zltail><zllen><entry>...<entry><zlend>
 ```
 
-![image-20210311001744632](/Users/vince/Library/Application Support/typora-user-images/image-20210311001744632.png)
-
-------------图片
+![image-20210311223103086](imgs/image-20210311223103086.png)
 
 接下来我们具体看下实际元素里，究竟是怎么存储的。
 
@@ -244,7 +242,7 @@ typedef struct zlentry {
 } zlentry;                 
 ```
 
-------------图片
+![image-20210311224505708](imgs/image-20210311224505708.png)
 
 那么什么时候使用ziplist呢？
 
@@ -291,12 +289,208 @@ dictht放在了dict里面了。
 
 从源码可以看出，它是一个数组+链表的结构。如图：
 
-![image-20210311003113646](/Users/vince/Library/Application Support/typora-user-images/image-20210311003113646.png)
+![image-20210311222431174](imgs/image-20210311222431174.png)
 
 我们发现dictht后面是个null，说明第二个hashtable没有数据。那么为什么要定义两个hashtable，其中一个不用呢？
 
-答案是为了扩展哈希表！redis 为每个数据集配备两个哈希表，能在不中断服务的情况下扩展哈希表。平时哈希表扩展的做法是，为新的哈希表另外开辟一个空间，将原哈希表的数据重新计算哈希值，以移动到新哈希表。如果原哈希表数据过多，中间大量的计算过程较好费大量时间，这段时间 redis 将不能提供服务。
+答案是为了扩展哈希表！ht默认使用ht[0],ht[1]不初始化。hash表有一个普遍存在的问题就是hash冲突，如果冲突过多都会放置在上图的dicEntry数组里。这样hash的读性能就退化称数组的遍历，效率降低。解决hash冲突的有效手段就是对hash进行扩容，让数据足够分散。这个过程会进行一次rehash，这个过程中就会使用到ht[1]。首先是初始化ht[1]的大小为ht[0]的最小n次幂。然后将ht[0]的数据写入ht[1]，然后再将ht[0]释放。怎么样这个设计过程是不是很巧妙？
 
+使用场景：
 
+1、和String一样！毕竟hash存储的也是String。
 
-使用场景：和String一样
+2、存储对象类型的数据：比string节省key。
+
+3、购物车：key：用户id，filed：商品id，value：数量。增加、减少、删除等都可以操作。
+
+#### 3. List
+
+List主要用来存储有序数据，数据可重复。
+
+先来操作一波：
+
+> 127.0.0.1:6379> lpush queue a
+> (integer) 1
+> 127.0.0.1:6379> lpush queue b c
+> (integer) 3
+> 127.0.0.1:6379> object encoding queue
+> "quicklist"
+
+可以看到list的底层结构式quicklist来实现的。接下来就介绍一下quicklist。
+
+##### quicklist
+
+quicklist 实际上是 ziplist 和 linkedlist 的混合体，它将 linkedList 按段切分，每一段使用 ziplist 来紧凑存储，多个 ziplist 之间使用双向指针串接起来。
+
+```c
+typedef struct quicklist {
+    quicklistNode *head;//指向第一个quicklistNode
+    quicklistNode *tail;//指向最后一个quicklistNode
+    unsigned long count; //在所有ziplist中entry的个数总和
+    unsigned int len;//quicklistNode的个数
+    int fill : 16; //ziplist大小限定，由server.list_max_ziplist_size给定
+    unsigned int compress : 16; //节点压缩深度设置，由server.list-compress-depth给定，0表示关闭压缩
+} quicklist;
+```
+
+看到里面用到了一个quicklistNode存储数据。
+
+```c
+typedef struct quicklistNode {
+    struct quicklistNode *prev; //上一个node节点
+    struct quicklistNode *next; //下一个node
+    unsigned char *zl;            //保存的数据 压缩前ziplist 压缩后压缩的数据
+    unsigned int sz;             /* ziplist size in bytes */
+    unsigned int count : 16;     /* count of items in ziplist */
+    unsigned int encoding : 2;   /* RAW==1 or LZF==2 */
+    unsigned int container : 2;  /* NONE==1 or ZIPLIST==2 */
+    unsigned int recompress : 1; /* was this node previous compressed? */
+    unsigned int attempted_compress : 1; /* node can't compress; too small */
+    unsigned int extra : 10; /* more bits to steal for future usage */
+} quicklistNode;
+```
+
+![image-20210311230825991](imgs/image-20210311230825991.png)
+
+ziplist上文已经介绍了，就不多说了。总的来说，quicklist就是ziplist 和 linkedlist 的混合体。
+
+应用场景：
+
+1、列表：文章列表、热门排行榜之类的
+
+2、队列／栈：list有两个阻塞操作：BLPOP/BRPOP
+
+####4、set
+
+set存储String类型的无序集合，最大存储2^32-1。
+
+先操作一波：
+
+> ziplist 和 linkedlist 的混合体
+> 127.0.0.1:6379> sadd myset a b c
+> (integer) 3
+> 127.0.0.1:6379> object encoding myset
+> "hashtable"
+> 127.0.0.1:6379> sadd newset 1 2 3
+> (integer) 3
+> 127.0.0.1:6379> object encoding newset
+> "intset"
+> 127.0.0.1:6379> 
+
+可以看到set的编码格式有两种intset和hashtable。如果第一个原始是一个整数，就会初始化为intset，如果intset保存的值的数量大于512(set_max_intset_entries默认值)个，会转化称hashtable。
+
+```c
+typedef struct intset {
+    uint32_t encoding;//数组中的值的编码方式
+    uint32_t length;//数组长度
+    int8_t contents[];//数组，记录每个值
+} intset;
+```
+
+使用场景：
+
+1、抽奖：spop
+
+2、点赞、打卡：数据集无序，sadd添加，srem取消，sismember是否操作，smembers所有，scard总数
+
+3、标签：sadd添加 sinter筛选
+
+#### 5、zset
+
+sorted set存储的是有序的集合元素。它是为每个元素添加了一个score，按照score的大小排序。
+
+操作一波：
+
+> 127.0.0.1:6379> zadd myzset 1 java 2 redis 3 mysql
+> (integer) 3
+> 127.0.0.1:6379> object encoding myzset
+> "ziplist"
+> 127.0.0.1:6379> zadd myzsetnew 4 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+> (integer) 1
+> 127.0.0.1:6379> object encoding myzsetnew
+> "skiplist"
+
+可以看到，有序集合是由 ziplist (压缩列表) 或 skiplist (跳跃表)组成的。
+
+当数据比较少时(<128)，且所有元素长度都小于64字节，有序集合使用的是 ziplist 存储的，否则使用skiplist结构存储。
+
+ziplist我们已经很熟悉了，那么问题来了，什么是skiplist？
+
+##### skiplist
+
+skiplist是一个特殊的链表，相比一般的链表，有更高的查找效率，其效率可比拟于二叉查找树。
+
+```c
+typedef struct zskiplist {
+    struct zskiplistNode *header, *tail; // 头尾指针 
+    unsigned long length;   // skiplist的长度  
+    int level;  // 最高多少级链表 
+} zskiplist;
+```
+
+zskiplist的定义，没啥内容，就头尾指针、长度和级数，重点还是在zskiplistNode中。
+
+```c
+typedef struct zskiplistNode {
+    sds ele;   // 节点存储的具体值 
+    double score;   // 节点对应的分值 
+    struct zskiplistNode *backward; // 前向指针
+    struct zskiplistLevel {
+    	struct zskiplistNode *forward; // 每一层的后向指针 
+    	unsigned long span;  // 到下一个节点的跨度 
+    } level[];
+} zskiplistNode;
+```
+
+通过上面的源码，我们可以简单画一下大概的结构图。
+
+![image-20210311235737884](imgs/image-20210311235737884.png)
+
+很明显查询我们需要遍历整个链表，效率低。我们想要提高其查找效率，可以考虑在链表上建索引的方式。每两个结点提取一个结点到上一级，我们把抽出来的那一级叫作索引。这就是skiplist的实现方式。
+
+![image-20210312000217988](imgs/image-20210312000217988.png)
+
+在图中，需要寻找 68，在给出的查找过程中，利用跳表数据结构优势，只比较了 3次。由此可见，跳表预先间隔地保存了有序链表中的节点，从而在查找过程中能达到类似于二分搜索的效果，而二分搜索思想就是通过比较中点数据放弃另一半的查找，从而节省一半的查找时间。
+
+应用场景：顺序会动态变化的场景。
+
+1、热榜、热搜：incrby进行加1，zrevrange获取排序
+
+到这里常用的数据类型就介绍完毕了，简单总结一下。
+
+![image-20210312002451352](imgs/image-20210312002451352.png)
+
+#### 其他数据结构
+
+##### bitmap
+
+![image-20210312001127547](imgs/image-20210312001127547.png)
+
+通过一个bit位来表示某个元素对应的值或者状态,其中的key就是对应元素本身。bitmap本身会极大的节省储存空间。
+
+Redis从2.2.0版本开始新增了`setbit`,`getbit`,`bitcount`等几个bitmap相关命令。虽然是新命令，但是并没有新增新的数据类型，因为`setbit`等命令只不过是在`set`上的扩展。
+
+使用场景：
+
+1、在线用户统计
+
+2、每日用户访问统计
+
+#### hyperloglogs
+
+HyperLogLog是用来做基数统计的算法，它的优点是在输入元素的数量或者体积非常非常大时，计算基数所需的空间总是固定的、并且是很小的。什么是基数呢？举个例子：比如数据集 {1, 3, 5, 7, 5, 7, 8}， 那么这个数据集的基数集为 {1, 3, 5 ,7, 8}, 基数(不重复元素)为5。 基数估计就是在误差可接受的范围内，快速计算基数。
+
+使用场景：统计网站的UV，日活。
+
+#####geo
+
+顾名思义，是用来地理位置计算的。
+
+使用场景：附近的人
+
+##### Stream
+
+5.0之后新出的数据类型，支持广播的可持久化消息队列，类似于kafka。
+
+使用场景：消息队列
+
