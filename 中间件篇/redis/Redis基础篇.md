@@ -83,16 +83,27 @@ typedef struct redisObject {
 到这里就能看出一些奇妙的地方了，type是数据类型，encoding是编码类型，且数量不等。有意思了，那我们接下来看看这个encoding究竟是些什么。
 
 > 127.0.0.1:6379> set number 123
+
 > OK
+
 > 127.0.0.1:6379> object encoding number
+>
 > "int"
+>
 > 127.0.0.1:6379> set story "long long ago,and long long ago,other long long ago"
+>
 > OK
+>
 > 127.0.0.1:6379> object encoding story
+>
 > "raw"
+>
 > 127.0.0.1:6379> set msg "hello world"
+>
 > OK
+>
 > 127.0.0.1:6379> object encoding msg
+>
 > "embstr"
 
 到此我们大概看出来一些端倪，Redis的数据类型背后根据存储的数据不同使用的不同的编码存储。为什么要这样做呢？
@@ -203,12 +214,19 @@ Hash类型是指Redis键值对中的值本身又是一个键值对结构，形�
 那么它的底层编码是如何实现的呢？是不是使用dicEntry实现的呢？我们先来操作一波：
 
 > 127.0.0.1:6379> hset user1 name aaaaaaaaaaaaaaaaaaa
+>
 > (integer) 1
+>
 > 127.0.0.1:6379> hset user2 name aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+>
 > (integer) 1
+>
 > 127.0.0.1:6379> object encoding user1
+>
 > "ziplist"
+>
 > 127.0.0.1:6379> object encoding user2
+>
 > "hashtable"
 
 可以看到，哈希类型的内部编码有两种：ziplist(压缩列表),hashtable(哈希表)。又有两个陌生的结构，不要慌张，我们下文会逐个分析。
@@ -247,6 +265,7 @@ typedef struct zlentry {
 那么什么时候使用ziplist呢？
 
 > 1. hash对象保存的键值对数量<512
+>
 > 2. 所有键值对字符串长度小于54字节
 
 如果任何一个条件不满足，存储结构就会转成hashtable。接下来介绍hashtable
@@ -310,10 +329,15 @@ List主要用来存储有序数据，数据可重复。
 先来操作一波：
 
 > 127.0.0.1:6379> lpush queue a
+>
 > (integer) 1
+>
 > 127.0.0.1:6379> lpush queue b c
+>
 > (integer) 3
+>
 > 127.0.0.1:6379> object encoding queue
+>
 > "quicklist"
 
 可以看到list的底层结构是quicklist来实现的。接下来就介绍一下quicklist。
@@ -360,7 +384,7 @@ ziplist上文已经介绍了，就不多说了。总的来说，quicklist就是z
 
 2、队列／栈：list有两个阻塞操作：BLPOP/BRPOP
 
-####4、set
+#### 4、set
 
 set存储String类型的无序集合，最大存储2^32-1。
 
@@ -402,12 +426,19 @@ sorted set存储的是有序的集合元素。它是为每个元素添加了一�
 操作一波：
 
 > 127.0.0.1:6379> zadd myzset 1 java 2 redis 3 mysql
+>
 > (integer) 3
+>
 > 127.0.0.1:6379> object encoding myzset
+>
 > "ziplist"
+>
 > 127.0.0.1:6379> zadd myzsetnew 4 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+>
 > (integer) 1
+>
 > 127.0.0.1:6379> object encoding myzsetnew
+
 > "skiplist"
 
 可以看到，有序集合是由 ziplist (压缩列表) 或 skiplist (跳跃表)组成的。
