@@ -240,7 +240,7 @@ typedef struct redisObject {
 } robj;
 ```
 
-增额lru的值，不是获取的当前时间的时间戳，而是设置的为全局的server.lruclock的值。而server.lruclock的值又是怎么来的呢？是由一个定式处理函数serverCron来定时更新的。
+设置lru的值，不是获取的当前时间的时间戳，而是设置的为全局的server.lruclock的值。而server.lruclock的值又是怎么来的呢？是由一个定时处理函数serverCron来定时更新的。
 
 ```c
 robj *lookupKey(redisDb *db, robj *key, int flags) {
