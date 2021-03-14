@@ -143,11 +143,11 @@ slave连接master后，会主动发起 PSYNC 命令，从节点会提供 master_
 
 增量同步流程图：
 
-![image-20210314183421196](redis/imgs/image-20210314183421196.png)
+![image-20210314183421196](imgs/image-20210314183421196.png)
 
 全量同步流程图：
 
-![image-20210314182852417](/Users/vince/Library/Application Support/typora-user-images/image-20210314182852417.png)
+![image-20210314182852417](imgs/image-20210314182852417.png)
 
 看下源码感受一下：
 
