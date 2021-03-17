@@ -10,4 +10,4 @@
    - [4.Redis架构篇](中间件篇/redis/Redis架构篇.md)
    - [5.Redis架构篇](中间件篇/redis/Redis应用篇.md)
    - [6.Redis架构篇](中间件篇/redis/Redis缓存篇.md)
-   - [6.Redis监控篇](中间件篇/redis/Redis监控篇.md)
+   - [7.Redis监控篇](中间件篇/redis/Redis监控篇.md)
