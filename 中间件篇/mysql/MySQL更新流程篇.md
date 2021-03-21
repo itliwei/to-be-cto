@@ -1,4 +1,4 @@
-# MySQL更改流程篇
+# MySQL-Innodb篇
 
 [TOC]
 
@@ -14,7 +14,7 @@
 
 首先我们先来看一下InnoDB的架构图：
 
-![image-20210321210932222](/Users/vince/Library/Application Support/typora-user-images/image-20210321210932222.png)
+![image-20210321210932222](imgs/image-20210321210932222.png)
 
 可以看到InnoDB的存储结构有几个个大块：
 
@@ -30,7 +30,7 @@
 
 2、通过OS Cache存储
 
-![image-20210322003124544](/Users/vince/Library/Application Support/typora-user-images/image-20210322003124544.png)
+![image-20210322003124544](imgs/image-20210322003124544.png)
 
 该参数从fsync到O_DIRECT再到O_DIRECT_NO_FSYNC，性能分别有明显的提升。
 
@@ -87,7 +87,7 @@ InnoDB里面有专门的后台线程把Buffer Pool的数据写入到磁盘，每
 
 3、新页（例如被预读的页）加入缓冲池时，只加入到老生代头部，如果数据真正被读取（预读成功），才会加入到新生代的头部，如果数据没有被读取，则会比新生代里的“热数据页”更早被淘汰出缓冲池。
 
-![image-20210321223534910](/Users/vince/Library/Application Support/typora-user-images/image-20210321223534910.png)
+![image-20210321223534910](imgs/image-20210321223534910.png)
 
 **缓存污染**
 
@@ -101,7 +101,7 @@ MySQL缓冲池加入了一个“老生代停留时间窗口”的机制：
 
 而这个T如何设置呢？
 
-![image-20210321222132880](/Users/vince/Library/Application Support/typora-user-images/image-20210321222132880.png)
+![image-20210321222132880](imgs/image-20210321222132880.png)
 
 总结一下：Buffer Pool就是为了提高读写效率的一个缓存，而缓存通过自定义的LFU算法实现缓存的最大利用率。
 
@@ -112,7 +112,7 @@ Change Buffer 是 Buffer Pool 中的一部分，顾名思义，就是更改的�
 对表执行 INSERT，UPDATE和 DELETE操作时， 索引列的值（尤其是secondary keys的值）通常按未排序顺序排列，需要大量I/O才能使二级索引更新。Change Buffer会缓存这个更新当相关页面不在Buffer Pool中，从而磁盘上的相关页面不会立即被读避免了昂贵的I / O操作。当页面加载到缓冲池中时，将合并缓冲的更改，稍后将更新的页面刷新到磁盘。该InnoDB主线程在服务器几乎空闲时以及在慢速关闭期间合并缓冲的更改 。以此来减少二级索引的随机IO。
 
 
-![image-20210321223453005](/Users/vince/Library/Application Support/typora-user-images/image-20210321223453005.png)
+![image-20210321223453005](imgs/image-20210321223453005.png)
 
 
 
@@ -156,7 +156,7 @@ AHI 在实现上就是一个哈希表：从某个检索条件到某个数据页�
 
 如下图所示：
 
-![image-20210322003246791](/Users/vince/Library/Application%20Support/typora-user-images/image-20210322003246791.png)
+![image-20210322003246791](imgs/image-20210322003246791.png)
 
 #### 磁盘结构
 
