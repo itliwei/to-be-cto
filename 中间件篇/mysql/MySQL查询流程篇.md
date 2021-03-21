@@ -109,7 +109,7 @@ MySQL查询缓存保存查询返回的完整结果。当查询命中该缓存，
 
 请问一个问题，数据库执行的SQL，是不是就是我们发送的SQL？
 
-答案是否定的，就想java写的代码执行的顺序是否就是我们代码写的顺序？知道java指令重排的朋友都知道，会有一个优化的过程。SQL也是一样的！
+答案是否定的，就像java写的代码执行的顺序是否就是我们代码写的顺序？知道java指令重排的朋友都知道，会有一个优化的过程。SQL也是一样的！
 
 那SQL如何进行优化呢？又如果评价优化的好坏呢？这就是优化器模块要做的事情。
 
@@ -221,7 +221,7 @@ CREATE TABLE `need`.`<table_name>` (
 
 > These tables have a small footprint. [Table-level locking](https://dev.mysql.com/doc/refman/5.7/en/glossary.html#glos_table_lock) limits the performance in read/write workloads, so it is often used in read-only or read-mostly workloads in Web and data warehousing configurations.
 
-应用范围比较小，表级锁定限制了读写的性能，它常用语只读或者读多写少的场景。
+应用范围比较小，表级锁定限制了读写的性能，它常用于只读或者读多写少的场景。
 
 使用这个存储引擎，每个MyISAM在磁盘上存储成三个文件。
 
@@ -309,7 +309,7 @@ MySQL同时支持这么多引擎，它是如何做到的呢？这是因为所有
 
 结果集返回客户端是一个增量且逐步返回的过程。有可能MySQL在生成第一条结果时，就开始向客户端逐步返回结果集了。这样服务端就无须存储太多结果而消耗过多内存，也可以让客户端第一时间获得返回结果。
 
-到这里MySQL的执行流程已经介绍的差不多了，我们总结一下整个过程：
+到这里MySQL的执行流程已经介绍得差不多了，我们总结一下整个过程：
 
 - 客户端和MySQL服务器建立连接，发送一条查询请求
 - 服务器首先检查查询缓存，如果命中缓存，则立刻返回存储在缓存中的结果。否则进入下一阶段
