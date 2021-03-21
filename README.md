@@ -11,6 +11,7 @@
 - **[MySQL](中间件篇/mysql/MySQL.md)**
     
    - [1.MySql前言篇](中间件篇/mysql/MySQL前言篇.md)
+   - [2.MySql查询流程篇](中间件篇/mysql/MySQL查询流程篇.md)
    
 - **[Redis](中间件篇/redis/Redis.md)**
     
