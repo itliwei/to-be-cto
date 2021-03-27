@@ -13,6 +13,7 @@
    - [1.MySql前言篇](中间件篇/mysql/MySQL前言篇.md)
    - [2.MySql查询流程篇](中间件篇/mysql/MySQL查询流程篇.md)
    - [3.MySql更新流程篇](中间件篇/mysql/MySQL更新流程篇.md)
+   - [4.InnoDB事务篇](中间件篇/mysql/InnoDB事务篇.md)
    
 - **[Redis](中间件篇/redis/Redis.md)**
     
