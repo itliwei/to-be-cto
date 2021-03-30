@@ -236,12 +236,16 @@ MVCC的实现：
 
 ![image-20210327083519983](imgs/image-20210327083519983.png)
 
+大家可以想象一下，在`READ COMMITTED` 读已提交的情况下，即使采用了 MVCC 方式也会出现幻读，如果我们同时开启事务A 和 事务B， 现在事务A 中进行某个条件的查询，读取的时候采用排他锁，在事务B 中增加一条符合该条件范围的数据，并提交，然后事务A中再查询该条件范围的数据，就会发现结果集中多了一条数据，这样便出现了幻读。
+
 在MySQL中，`READ COMMITTED`和`REPEATABLE READ`隔离级别的的一个非常大的区别就是它们生成ReadView的时机不同。
 
 - READ COMMITTED —— 每次读取数据前都生成一个ReadView
 - REPEATABLE READ —— 在第一次读取数据时生成一个ReadView
 
-在刚才介绍mvcc数据接口和实现思路的时候，也提到了使用锁的方式来保证操作的隔离性。而锁天然会对性能造成影响，在InnoDB中有哪些锁？有哪些方式可以提高性能呢？
+到这里关于InnoDB的MVCC的介绍基本就结束了。MVCC的实现没有固定的规范，每个数据库都会有不同的实现方式。
+
+那`REPEATABLE READ`是怎么保证只有一个ReadView的呢？必然是通过锁实现的！
 
 #### 4.3 InnoDB 锁分析
 
@@ -259,7 +263,7 @@ MVCC的实现：
 
 那InnoDB都支持哪些锁呢？
 
-##### [InnoDB锁类型](https://dev.mysql.com/doc/refman/5.7/en/innodb-locking.html)
+##### 4.4 [InnoDB锁类型](https://dev.mysql.com/doc/refman/5.7/en/innodb-locking.html)
 
 ![image-20210327090239027](imgs/image-20210327090239027.png)
 
@@ -289,7 +293,7 @@ X锁与任何的锁都不兼容，而S锁仅和S锁兼容。
 
 注意：行锁实际上是索引记录锁，对索引记录的锁定。即使表没有建立索引，InnoDB也会创建一个隐藏的聚簇索引，并使用此索引进行记录锁定。
 
-**表级锁：**
+###### 表级锁：
 
 ​	意向锁：锁定是表级锁定，标识事务稍后对表中的行做哪种类型的锁定(共享或独占)。
 
@@ -308,7 +312,7 @@ X锁与任何的锁都不兼容，而S锁仅和S锁兼容。
 
 这就像我们园区里的停车位，进门处就有一个指示牌，提示着有没有停车位，如果有的话则可以将车开进去的思路类似。而不需要车开进去转了一圈没有找到停车位再出来。
 
-**行锁**
+###### 行级锁
 
 ​	行锁的以下三种算法
 
@@ -330,13 +334,17 @@ Record Lock总是会去锁住索引记录，如果InnoDB存储引擎表建立的
 
 ![image-20210329081820210](imgs/image-20210329081820210.png)
 
-在Repeatable Read隔离级别下，Next-key Lock 算法是默认的行记录锁定算法。
+在`Repeatable Read`隔离级别下，Next-key Lock 算法是默认的行记录锁定算法。
 
 注意：
 
 > 1. 只有通过索引条件检索数据时，InnoDB才会使用行级锁，否则会使用表级锁(索引失效，行锁变表锁)
 > 2. 即使是访问不同行的记录，如果使用的是相同的索引键，会发生锁冲突
 > 3. 如果数据表建有多个索引时，可以通过不同的索引锁定不同的行
+
+到这里我们再来梳理一下，InnoDB是如何`Repeatable Read`是如何避免幻读的应该清楚了吧。对，就是通过Next-Key将一段数据上锁，这时候如果有插入发现有锁然后阻塞，这样就能保证原有的读取的数据不会产生幻读。
+
+###### 其他锁
 
 **插入意向锁（Insert Intention Lock）**
 
@@ -369,6 +377,26 @@ innodb_autoinc_lock_mode参数可以控制 auto-increment 锁定的算法。有�
 3. 人为解决，kill阻塞进程（show processlist）
 4. wait for graph 等待图（主动检测）
 
+**锁的操作**
+
+常用配置：
+
+- 设置超时时间参数innodb_lock_wait_timeout，
+- 将参数 innodb_deadlock_detect 设置为 on，发起死锁检测，当发现死锁后，主动回滚死锁链条中的某一个事务，让其它事务得以继续执行。
+
+除了配置，还有一些常用命令：
+
+```sql
+SELECT * FROM table_name WHERE ... FOR UPDATE； //对读取的行记录加一个X锁
+SELECT * FROM table_name WHERE ... LOCK IN SHARE MODE;  //对读取的行记录加一个S锁
+lock table tbl_name read;// 对表加读锁
+lock table tbl_name write; //对表加写锁
+flush tables with read lock;//全局锁加锁命令
+unlock tables; //释放锁
+show status like 'innodb_row_lock%';//查询InnoDB行锁争用情况
+show status like 'table%';//查看表锁
+```
+
 **如何避免**
 
 1. 加锁顺序一致，尽可能一次性锁定所需的数据行
@@ -380,11 +408,39 @@ innodb_autoinc_lock_mode参数可以控制 auto-increment 锁定的算法。有�
 7. 精心设计索引，尽量使用索引访问数据
 8. 借助相关工具：pt-deadlock-logger
 
-#### 4.4 隔离级别总结
+#### 4.5 隔离级别总结
 
-	##### 隔离级别回顾
+我们分析完原理之后，再回过头来总结一下各个隔离级别是如何实现的。
 
-##### 如何选择隔离级别
+![image-20210325232450403](imgs/image-20210325232450403.png)
+
+1、Read Uncommitted：
+
+​	不加锁
+
+​	问题：脏读、不可重复读、幻读
+
+2、Read Committed：
+
+​	普通的select 快照读，底层是MVCC，MVCC的底层是undo log + ReadView
+
+​	加锁的select使用的是Record锁
+
+​	问题：不可重复读、幻读
+
+3、Repeatable Read：
+
+​	普通的select 快照读，底层是MVCC；
+
+​	加锁的select、update、delete使用的是 当前读，底层实现的是Next-Key；
+
+​	问题：无
+
+4、Serializable：
+
+​	所有的Select都会转化为 Select …… in share model，update、delete会互斥。
+
+​	问题：无
 
 
 
