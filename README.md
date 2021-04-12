@@ -14,6 +14,9 @@
    - [2.MySql查询流程篇](中间件篇/mysql/MySQL查询流程篇.md)
    - [3.MySql更新流程篇](中间件篇/mysql/MySQL更新流程篇.md)
    - [4.InnoDB事务篇](中间件篇/mysql/InnoDB事务篇.md)
+   - [5.MySQL索引篇](中间件篇/mysql/MySQL索引篇.md)
+   - [6.MySQL日志篇](中间件篇/mysql/MySQL日志篇.md)
+   - [7.MySQL架构篇](中间件篇/mysql/MySQL架构篇.md)
    
 - **[Redis](中间件篇/redis/Redis.md)**
     
