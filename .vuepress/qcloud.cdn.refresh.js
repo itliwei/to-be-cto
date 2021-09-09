@@ -8,7 +8,7 @@ console.log(userConfig)
 qcloudSDK.config(userConfig)
 
 qcloudSDK.request('RefreshCdnDir', {
-  'dirs.0': 'http://icyfenix.cn'
+  'dirs.0': 'http://itliwei.github.io'
 }, (res) => {
   console.log(res)
 })

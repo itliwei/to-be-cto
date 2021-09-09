@@ -45,13 +45,13 @@ module.exports = {
         choosen: 'gitalk',
         options: {
           clientID: 'acf59fc06b2cf691903d',
-          // 如果你对"clientSecret"有疑问,可以参考 http://icyfenix.cn/architect-perspective/general-architecture/system-security/authorization.html#oauth2
+          // 如果你对"clientSecret"有疑问,可以参考 http://itliwei.github.io/architect-perspective/general-architecture/system-security/authorization.html#oauth2
           clientSecret: '4cbf25bbf327f1164627d2ab43263b07b14c54fe',
           repo: 'to-be-cto',
           owner: 'itliwei',
           admin: ['itliwei'],
           labels: ["Gitalk", "Comment"],
-          id: '<%- ("icyfenix.cn" + (frontmatter.to.path || window.location.pathname)).slice(-50) %>',
+          id: '<%- ("itliwei.github.io" + (frontmatter.to.path || window.location.pathname)).slice(-50) %>',
           title: '「Comment」<%- window.location.origin + (frontmatter.to.path || window.location.pathname) %>',
           body: '<%- window.location.origin + (frontmatter.to.path || window.location.pathname) %>',
           distractionFreeMode: false,
@@ -100,7 +100,7 @@ module.exports = {
           //   link: 'https://github.com/itliwei/fenix-bookstore-frontend'
           // }, {
           //   text: '前端工程在线示例 Fenix\'s Bookstore',
-          //   link: 'https://bookstore.icyfenix.cn'
+          //   link: 'https://bookstore.itliwei.github.io'
           // }, {
           //   text: '后端：单体架构 Spring Boot',
           //   link: 'https://github.com/itliwei/monolithic_arch_springboot'
